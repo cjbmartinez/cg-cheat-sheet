@@ -41,6 +41,9 @@ We are using `Page Access Tokens` for:
 - Sending Messages, Receipts and Messenger Notifications
 - Messenger SDK Features
 
+---
+---
+
 ## Invalidated Access Tokens
 
 We are requesting for a [Long Lived User Access Token](https://developers.facebook.com/docs/facebook-login/access-tokens/#termtokens) but still access tokens are vulnerable for invalidation upon violation of Facebook Policies e.g
@@ -63,6 +66,9 @@ Once access tokens are invalidated, the only way for the system to know that its
 Everytime a user opts in with a certain Mini App, The Page Access Token is checked if it is still valid. Once the page access token is recognized to be `Invalid`, We will mark the `User/Owner` and the `Page` as `invalidated` and we will require and send the User a notification to relogin to our CMS so that we can acquire a new `User Access Token` and generate new `Page Access Tokens`. We already created an automated process to refresh access tokens for user and page that has been marked as invalidated.
 
 ![Facebook Relogin](./photos/facebook-relogin.png)
+
+---
+---
 
 ## Existing User Conversation On Launched Mini App
 
@@ -122,6 +128,8 @@ Add Checking if sender_id is present on Mini App Entry Point. Once we received a
 
 Refs: https://developers.facebook.com/docs/messenger-platform/reference/messenger-extensions-sdk/getContext
 
+---
+---
 
 ## Access Mini App On Business Manager
 
@@ -137,6 +145,9 @@ Add Counterchecking if parameter sender_id (Supplied from Conversation Post-back
 ![Permission](./photos/business-manager.png)
 
 Refs: https://developers.facebook.com/docs/messenger-platform/reference/messenger-extensions-sdk/getContext
+
+---
+---
 
 ### Merchant Invalid Permissions
 
@@ -172,6 +183,9 @@ Lacking Permissions either from Login or from Page Role will cause for the Mini 
 
 Refs: https://developers.facebook.com/docs/messenger-platform/webview/extensions
 
+---
+---
+
 ## Page cannot set Messenger Profile
 
 Once we fail to set these Mesesnger Profiles (via Facebook Graph API)
@@ -188,6 +202,8 @@ Also one scenario is we failed to set the
 
 But was able to set the `Greeting Message`, High probability that this is more of a `Facebook Role` issue (based on observation and experience). We recommend that Users setting up their Mini App should be an `Admin` of the Facebook Page to be connected to.
 
+---
+---
 
 ## Invalidated Token on Launch
 
@@ -204,6 +220,9 @@ $ user.mark_oauth_token_as_invalid!
 ```
 
 This will mark the user's oauth token and all referencd `page access tokens` to be invalid. Once we mark the access tokens as invalid. We now let the user `Re login in our CMS` and this will automatically refresh their access tokens
+
+---
+---
 
 ## Unable to Fetch Mini App User Name and Picture
 
@@ -223,6 +242,9 @@ To solve the problem, We added a new field to identify users that we failed to f
 - On their first transaction (e.g Order), We update their name record with the name they have added for their Order
 
 - Once we fetched their name and profile picture via Messenger Profile API
+
+---
+---
 
 ## Corrupted Facebook Profile Pictures
 
@@ -248,6 +270,9 @@ $ recipient = OpenStruct.new(user)
 $ page_recipient.update(profile_pic: recipient.profile_pic)
 ```
 
+---
+---
+
 ## Facebook Messaging 24 hour Window
 
 As per [Messenger Platform Policy]("https://developers.facebook.com/docs/messenger-platform/policy/policy-overview/)
@@ -259,6 +284,9 @@ Businesses will have up to 24 hours to respond to a user. Messages sent within t
 Meaning we are allowed to send messages everytime a user interacts (Message or React) in the Facebook Page. 1 interaction = 1 allowed automated reply or facebook message.
 
 For us to integrate facebook messenger notifications for our User's Transactions e.g Order Status Updates and Post Order Notifications, We are utilizing the use of [Message Tags]("https://developers.facebook.com/docs/messenger-platform/send-messages/message-tags) specifically the `POST_PURCHASE_UPDATE` message tag to allow us to send Order Related Notifications to our Users
+
+---
+---
 
 ## Messenger Webview Requirements
 
@@ -281,6 +309,9 @@ For Closing the Webview Programatically we already have a dedicated route to clo
 
 Refs: https://developers.facebook.com/docs/messenger-platform/webview
 
+---
+---
+
 ## Handling Dynamic PSID for Static Urls
 
 We are utilizing the Messenger Extensions SDK Feature `getContext` to dynamically fetch a user's PSID and insert it in our url parameters. We handle this by identifying urls that came from static urls e.g from Persistent Menus
@@ -292,8 +323,9 @@ window.extAsyncInit = function() {
     if (features.includes("context")) {
       MessengerExtensions.getContext('<%= ENV.fetch("FB_APP_ID") %>',
         function success(thread_context) {
-          // success
           var psid = thread_context.psid
+
+          # Identify if url has `from_persistent_menu` paramter
           if (window.location.href.includes("from_persistent_menu=true")) {
             var additionalParams = "&messenger_sdk=true&sender_id=".concat(psid);
             additionalParams += "&after_persistent_menu_load=true"
@@ -314,6 +346,9 @@ window.extAsyncInit = function() {
 ```
 
 Just add the url paramater `from_persistent_menu=true` to enable dynamic PSID fetching to your Mini App URL Route. Upon Messenger Extensions SDK initialization we will update the URL route to add a sender_id paramter having the value of PSID fetched from Messenger SDK.
+
+---
+---
 
 
 ## Contributing
