@@ -19,6 +19,7 @@ Messenger Mini App and covered here are the solutions and references to solve th
 - [Corrupted Facebook Page & User Profile Picture](#corrupted-facebook-profile-pictures)
 - [Facebook Messaging 24 hour Window](#facebook-messaging-24-hour-window)
 - [Messenger Webview Requirements](#messenger-webview-requirements)
+- [Handling Dynamic PSID for Static Urls e.g Persistent Menu Urls](#handling-dynamic-psid-for-static-urls)
 
 ## About User and Page Access Tokens
 We are using two kinds of facebook token for executing Facebook Graph API Calls in ChatGenie, The `User Access Token` and `Page Access Tokens`. The `User Access Token` is acquired upon Omniauth or Facebook Login.
@@ -279,6 +280,40 @@ Ensure that your controller action entry point will execute the `allow_facebook_
 For Closing the Webview Programatically we already have a dedicated route to close the webview in the Mini App.
 
 Refs: https://developers.facebook.com/docs/messenger-platform/webview
+
+## Handling Dynamic PSID for Static Urls
+
+We are utilizing the Messenger Extensions SDK Feature `getContext` to dynamically fetch a user's PSID and insert it in our url parameters. We handle this by identifying urls that came from static urls e.g from Persistent Menus
+
+```
+window.extAsyncInit = function() {
+  MessengerExtensions.getSupportedFeatures(function success(result) {
+    var features = result.supported_features;
+    if (features.includes("context")) {
+      MessengerExtensions.getContext('<%= ENV.fetch("FB_APP_ID") %>',
+        function success(thread_context) {
+          // success
+          var psid = thread_context.psid
+          if (window.location.href.includes("from_persistent_menu=true")) {
+            var additionalParams = "&messenger_sdk=true&sender_id=".concat(psid);
+            additionalParams += "&after_persistent_menu_load=true"
+            var url = window.location.href.replace('from_persistent_menu=true','')
+            var updatedUrl = url + additionalParams
+            Turbolinks.visit(updatedUrl, { action: "replace" } )
+          }
+        },
+        function error(err) {
+          ...
+        }
+      );
+    }
+  }, function error(err) {
+      ...
+  });
+};
+```
+
+Just add the url paramater `from_persistent_menu=true` to enable dynamic PSID fetching to your Mini App URL Route. Upon Messenger Extensions SDK initialization we will update the URL route to add a sender_id paramter having the value of PSID fetched from Messenger SDK.
 
 
 ## Contributing
