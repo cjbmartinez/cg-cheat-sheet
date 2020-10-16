@@ -20,6 +20,8 @@ Messenger Mini App and covered here are the solutions and references to solve th
 - [Facebook Messaging 24 hour Window](#facebook-messaging-24-hour-window)
 - [Messenger Webview Requirements](#messenger-webview-requirements)
 - [Handling Dynamic PSID for Static Urls e.g Persistent Menu Urls](#handling-dynamic-psid-for-static-urls)
+- [Mini App Static Error Pages](#mini-app-static-error-pages)
+- [Manual Client Request Snippets](#manual-client-request-snippets)
 
 ## About User and Page Access Tokens
 We are using two kinds of facebook token for executing Facebook Graph API Calls in ChatGenie, The `User Access Token` and `Page Access Tokens`. The `User Access Token` is acquired upon Omniauth or Facebook Login.
@@ -59,7 +61,7 @@ Once access tokens are invalidated, the only way for the system to know that its
 
 - Add Catch on Get Started to catch Authentication Error for Invalidated Token
 - Add JS Ajax call to validate fb page token on Mini App Entry points by adding
-```
+```ruby
 = javascript_include_tag 'validate_fb_page_token'
 ```
 
@@ -78,7 +80,7 @@ Most Onboarded Clients have already have existing conversations with their user 
 
 Solution
 
-```
+```ruby
 = javascript_include_tag "ask_permission_sdk"
 ```
 On Mini App Entry Points e.g (E-commerce Category Products Page) to countercheck if User has allowed necessary permissions needed. The Permissions that we acquire from `Optin / Get Started` are the following:
@@ -88,7 +90,7 @@ On Mini App Entry Points e.g (E-commerce Category Products Page) to countercheck
 
 We will force the user to enable this permissions (For this permissions are required for the proper functionality of the Mini App to the User)
 
-![Permission](./photos/permission.jpg)
+![Permission](./photos/permission.png)
 
 Refs: https://developers.facebook.com/docs/messenger-platform/reference/messenger-extensions-sdk/askPermission
 
@@ -96,7 +98,7 @@ Refs: https://developers.facebook.com/docs/messenger-platform/reference/messenge
 
 Messenger Extension getContext() will fail to supply a PSID (Sender ID) if User's last page interaction is between 4 months - X Years causing a null sender id to be passed in our API Calls.
 
-```
+```javascript
 ### messenger_extension_sdk.js.erb
 
 MessengerExtensions.getContext('<%= ENV.fetch("FB_APP_ID") %>',
@@ -115,7 +117,7 @@ Only way for SDK to fetch the User's PSID is for the User to interact (Via messa
 
 Solution:
 
-```
+```ruby
 = render "shared/sender_id_error_page",
                page_id: @page_id,
                err_msg: "Send any message or text to the conversation to refresh the page."
@@ -137,7 +139,7 @@ Merchant/Page Owners have the capability to open their user's conversation with 
 
 Solution
 
-```
+```ruby
 = javascript_include_tag 'validate_psid'
 ```
 Add Counterchecking if parameter sender_id (Supplied from Conversation Post-back Button) is the same with the fetched PSID from Messenger Extension getContext() to block access to the Mini App from the Business Manager
@@ -149,7 +151,7 @@ Refs: https://developers.facebook.com/docs/messenger-platform/reference/messenge
 ---
 ---
 
-### Merchant Invalid Permissions
+## Merchant Invalid Permissions
 
 Invalid Merchant Permissions will cause the `Messenger Extensions SDK` Initialization to fail. Instances that causes invalid permissions are the following:
 
@@ -160,7 +162,7 @@ Solution
 
 Once the Messenger Extension SDK has failed to initialized we render a static page informing that there has been a problem and the merchant should bo contacted immediately to fix the permissions allowed for ChatGenie Messenger App since we cannot automate this process and the User are the only one allowed to edit their allowed permissions.
 
-```
+```javascript
 MessengerExtensions.getContext('<%= ENV.fetch("FB_APP_ID") %>',
   function success(thread_context) {
     // success
@@ -255,7 +257,7 @@ Profile Picutres fetched for `Page` and `User` may be corrupted due to expiratio
 
 Incase you need to update the profile pictures manually, you can do so by executing it manually in the server console
 
-```
+```ruby
 ### For Page Profile Picture
 
 $ user.refresh_active_pages_photo_urls
@@ -297,7 +299,7 @@ Two Common issues encountered when intiailizing the Facebook Webview is
 
 To solve iframe issues we need to allow facebook messenger to load our application in an iFrame
 
-```
+```ruby
 def allow_facebook_iframe
   response.headers["X-Frame-Options"] = "ALLOW-FROM www.facebook.com"
 end
@@ -316,7 +318,7 @@ Refs: https://developers.facebook.com/docs/messenger-platform/webview
 
 We are utilizing the Messenger Extensions SDK Feature `getContext` to dynamically fetch a user's PSID and insert it in our url parameters. We handle this by identifying urls that came from static urls e.g from Persistent Menus
 
-```
+```javascript
 window.extAsyncInit = function() {
   MessengerExtensions.getSupportedFeatures(function success(result) {
     var features = result.supported_features;
@@ -349,6 +351,166 @@ Just add the url paramater `from_persistent_menu=true` to enable dynamic PSID fe
 
 ---
 ---
+## Mini App Static Error Pages
+
+### Facebook Page Related
+Everytime a Mini App Loads we countercheck the following
+- If the page is Active (Subscribed in CMS) && has a valid access token
+- If the mini app is in Maintenance Mode
+- If the mini app owner has allowed necessary permissions (Messenger SDK will fail see [here](#merchant-invalid-permissions))
+- If mini app has unpaid billings
+
+![Page](./photos/page-error-pages.png)
+---
+### GraphQL Api Connection
+![API](./photos/api-error.png)
+---
+### HTTP Error
+Error Code is rendered commonly encountered
+- 500 -> Code Base Error
+- 404 -> Page not Found
+
+![CODE](./photos/codebase-error.png)
+
+---
+---
+
+## Manual Client Request Snippets
+
+### Waiving Convenience Fee
+
+```ruby
+app.update(shoulder_convenience_fee: true)
+```
+---
+
+### Custom Convenience Fee for Merchant
+
+```ruby
+app.update(convenience_fee: CONVENIENCE_FEE_AMOUNT_IN_FLOAT)
+```
+---
+### Upgrade Merchant to Enterprise
+
+```ruby
+plans = EnterprisePlan.all
+
+enterprise_plan = SELECT FROM EXISTING PLANS
+# There are existing plans from bronze to mythical
+
+app.app_enterprise_plans.create(enterprise_plan: enterprise_plan)
+
+# Waive Convenience Fee
+app.update(shoulder_convenience_fee: true)
+
+# Remove Powered By ChatGenie on Persistent Menu
+
+app.persistent_menus.where(url: "https://chatgenie.ph").first.destroy
+
+# Unset Persistent Menu via Facebook Graph API
+# Any Changes you need to do for a Facebook Page's Persistent Menu
+# You need to `Unset` then `Set` via Facebook API
+
+page = app.active_page
+Facebook::Messenger::Profile.unset(
+  { fields: %w[persistent_menu] },
+  access_token: page.access_token
+)
+
+# Set Persistent Menu via Facebook Graph API
+
+persistent_menu_payload = app.build_persistent_menu_payload
+Facebook::Messenger::Profile.set(
+  persistent_menu_payload, access_token: page.access_token
+)
+```
+---
+### Changing an Ecommerce App to Super Mini App
+Let the merchant create an Ecommerce Mini App and let them finish the DIY Process. After they finished the DIY Process run the following. Then let them `Launch` their app in the CMS
+
+
+```ruby
+mall = App.find_by(name: MALL_NAME)
+mall.update(service_bundle: ServiceBundle.last) # Pass Mall Stores Management Service Bundle
+mall.blocks.welcome.destroy_all # destroy welcome block
+mall.persistent_menus.destroy_all # destroy persistent_menus
+
+### Generate Ecommerce Welcome Block
+generate_block = Actions::Blocks::Ecommerce::GenerateWelcomeMessage.execute(
+  app: mall, welcome_message: "test"
+)
+create_block = Actions::Blocks::CreateWelcomeMessageBlock.execute(
+  app: mall, welcome_message: generate_block.welcome_message,
+  welcome_button: generate_block.welcome_button
+)
+
+### Generate Notifications (If none) - Optional
+Actions::MiniAppNotification::DefaultNotification.execute(
+  app: mall
+)
+
+### Create Persistent Menu for Ecommerce
+mall.active_page.set_ecommerce_persistent_menu
+```
+---
+### Creating an Inquiry Bundle Mini App
+Let the User Create an Ecommerce Mini App. After they created their Mini App run the following. Then let them `Launch` their app in the CMS.
+
+```ruby
+page = Page.find_by(name: "Page Name (Replace Accordingly")
+page.page_settings.destroy!
+ecommerce_app = page.app
+user = page.user
+
+service_bundle = ServiceBundle.find_by(name: "Inquiry Bundle")
+existing_inquiry_app = service_bundle.apps.where.not(launched_at: nil).first
+
+new_app = App.create(
+  name: "New App Name (Replace accordingly)",
+  service_bundle: existing_inquiry_app.service_bundle,
+  user: user
+)
+page.update(app: new_app) # Associate Page to new App
+ecommerce_app.destroy! # Destroy Dummy Ecommerce App
+
+# Create App Request
+new_app.create_requesst(
+  details: "New App Request (Replace Accordingly)",
+  status: "approved"
+)
+
+# Create Persistent Menu
+existing_inquiry_app.persistent_menus.each do |menu|
+  dup_menu = menu.dup
+  dup_menu.url = dup_menu.url.gsub(
+    existing_inquiry_app.active_page.fb_page_id,
+    new_app.active_page.fb_page_id
+  )
+  dup.save
+end
+
+# Create Welcome BLock
+dup_block = existing_inquiry_app.blocks.welcome.first.dup
+dup_block.app = new_app
+dup_block.save
+
+dup_card = existing_inquiry_app.blocks.welcome.first.cards.first.dup
+dup_card.block = dup_block
+dup_card.save
+
+dup_button = existing_inquiry_app.blocks.welcome.first.cards.first.buttons.first.dup
+dup_button.card = dup_card
+dup_button.save
+```
+
+### Mark Billing as Paid
+
+```ruby
+app.billings.map(&:paid!) # if paid all
+# or
+app.billings.payment_submitted.map(&:paid!)
+# target only submitted payments
+```
 
 
 ## Contributing
