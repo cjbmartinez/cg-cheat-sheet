@@ -503,6 +503,25 @@ dup_button.card = dup_card
 dup_button.save
 ```
 
+### Change Ownership
+Currently Users with Resellers Roles are allowed to change ownership in the CMS. But incase you need to do it manually run the following:
+
+```ruby
+new_user = User.client.find_by(email: ...) # New User eitehr find by email or facebook name
+# Ensure that new User is currently a FB Page Admin of the Page connected to the App
+# You can check by runnning
+new_user.fetch_facebook_pages_from_graph_api
+# And check if the Page is included in the array object
+
+app.change_mini_app_ownersip(new_user: new_user)
+# Existing Instance method for change ownership logic
+
+# if app has already been launched
+app.active_page.page_logs.last.update(created_at: Time.zone.now - 1.hour)
+# Change last Page Logs to give way for the new User to reconnect the page in the CMS
+# Currently we integrate 30 minutes interval for every Page related Facebook API Call
+```
+
 ### Mark Billing as Paid
 
 ```ruby
