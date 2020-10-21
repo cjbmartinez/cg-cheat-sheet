@@ -522,6 +522,31 @@ app.active_page.page_logs.last.update(created_at: Time.zone.now - 1.hour)
 # Currently we integrate 30 minutes interval for every Page related Facebook API Call
 ```
 
+### Activate Mr Speedy to Merchant
+After running script let Merchant setup his/her Mr Speedy Shipping in the CMS
+
+```ruby
+app = MERCHANT_MINI_APP
+app.shipping_methods.third_party.create(
+name: "MrSpeedy",
+ description: "Same-Day Delivery Service care of MrSpeedy",
+ published: false,
+ third_party_provider: "mr_speedy"
+)
+```
+
+### Activate PayMaya to Merchant
+```ruby
+app = MERCHANT_MINI_APP
+gateway = PaymentGateway.find_by(title: "Paymaya")
+payment = app.payment_options.third_party.paymaya.create(
+  payment_name: "PayMaya", payment_gateway: gateway
+)
+payment.option_details.reminder.create(
+  content: "Debit and Credit Card Payments via PayMaya is now available in ChatGenie Mini Apps"
+)
+```
+
 ### Mark Billing as Paid
 
 ```ruby
